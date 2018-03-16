@@ -81,6 +81,33 @@ public interface Nullifier<I, O> {
         return g;
     }
 
+    static <A, B, C, D, E, F, G, H> H eval(A a,
+                                           Nullifier<? super A, ? extends B> f0,
+                                           Nullifier<? super B, ? extends C> f1,
+                                           Nullifier<? super C, ? extends D> f2,
+                                           Nullifier<? super D, ? extends E> f3,
+                                           Nullifier<? super E, ? extends F> f4,
+                                           Nullifier<? super F, ? extends G> f5,
+                                           Nullifier<? super G, ? extends H> f6) {
+        G g = eval(a, f0, f1, f2, f3, f4, f5);
+        H h = f6.apply(g);
+        return h;
+    }
+
+    static <A, B, C, D, E, F, G, H, I> I eval(A a,
+                                              Nullifier<? super A, ? extends B> f0,
+                                              Nullifier<? super B, ? extends C> f1,
+                                              Nullifier<? super C, ? extends D> f2,
+                                              Nullifier<? super D, ? extends E> f3,
+                                              Nullifier<? super E, ? extends F> f4,
+                                              Nullifier<? super F, ? extends G> f5,
+                                              Nullifier<? super G, ? extends H> f6,
+                                              Nullifier<? super H, ? extends I> f7) {
+        H h = eval(a, f0, f1, f2, f3, f4, f5, f6);
+        I i = f7.apply(h);
+        return i;
+    }
+
     /**
      * <p>Convenience method for evaluating a chain of method calls to see if any link is null.</p>
      * <p>A number of overloaded methods are provided with varying argument counts.</p>
@@ -133,6 +160,29 @@ public interface Nullifier<I, O> {
                                                 Nullifier<? super E, ? extends F> f4,
                                                 Nullifier<? super F, ? extends G> f5) {
         return eval(a, f0, f1, f2, f3, f4, f5) == null;
+    }
+
+    static <A, B, C, D, E, F, G, H> boolean isNull(A a,
+                                                   Nullifier<? super A, ? extends B> f0,
+                                                   Nullifier<? super B, ? extends C> f1,
+                                                   Nullifier<? super C, ? extends D> f2,
+                                                   Nullifier<? super D, ? extends E> f3,
+                                                   Nullifier<? super E, ? extends F> f4,
+                                                   Nullifier<? super F, ? extends G> f5,
+                                                   Nullifier<? super G, ? extends H> f6) {
+        return eval(a, f0, f1, f2, f3, f4, f5, f6) == null;
+    }
+
+    static <A, B, C, D, E, F, G, H, I> boolean isNull(A a,
+                                                      Nullifier<? super A, ? extends B> f0,
+                                                      Nullifier<? super B, ? extends C> f1,
+                                                      Nullifier<? super C, ? extends D> f2,
+                                                      Nullifier<? super D, ? extends E> f3,
+                                                      Nullifier<? super E, ? extends F> f4,
+                                                      Nullifier<? super F, ? extends G> f5,
+                                                      Nullifier<? super G, ? extends H> f6,
+                                                      Nullifier<? super H, ? extends I> f7) {
+        return eval(a, f0, f1, f2, f3, f4, f5, f6, f7) == null;
     }
 
 }

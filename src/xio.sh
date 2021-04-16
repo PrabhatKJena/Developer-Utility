@@ -1,8 +1,8 @@
 #!/bin/bash
 
-helpFunction() {
-    echo ""
-    echo "  Usage: $0 <option> <param>"
+help_function() {
+    echo -e "\tUsage: $0 <option> <param>"
+    echo -e "\t------------------------------------------------- IO Utils -----------------------------------------------------------------"
     echo -e "\t -e  | --encrypt                 : To encrypt ID(s).                     e.g.  -e 115805873229299249[,115805873229299250]"
     echo -e "\t -d  | --decrypt                 : To descrypt ID(s).                    e.g.  -d 5FSW9VDEHJ64L[,WXVEFZPYHPU2G]"
     echo -e "\t -ru | --read-user               : To read user details by account ID.   e.g.  -ru 115805873229299249"
@@ -10,6 +10,7 @@ helpFunction() {
               [-acc personal | business]                                                e.g.  -cu -acc personal -ccy USD -c US 
               [-ccy <current-code>] 
               [-c <country-code>]"
+    echo -e "\t------------------------------------------------- GIT Functions ------------------------------------------------------------"
     echo -e "\t -ga | --git-add                 : To add files for git commit.          e.g.  -ga -t \"java\|xml\"
               [-t <file-type-regex>]"
     echo -e "\t -gp | --git-push                : To commit and push files to git repo. e.g.  -gp -t \"java\" -m \"commit message\" -r origin -b dev
@@ -17,26 +18,41 @@ helpFunction() {
               [-m <commit-message>]
               [-r <git-remote-name>]
               [-b <git-branch-name>]"
+    echo -e "\t------------------------------------------------- Miscellaneous ------------------------------------------------------------"
+    echo -e "\t --o | --open-url                 : To open URL using short url mapping.  e.g.  --o te"
     exit 1 #Exit script after printing help
 }
 
 encrypt() {
+    _space=$1 # space
     curl -s -X POST -H 'Content-Type: application/x-www-form-urlencoded' -d "id_list=${enc_acc_list}&action=enc13&type=6" 'http://sretools02.qa.paypal.com/cgi-bin/decrypt_adv2.py' |
-        grep "<td>.*</td>" | sed -e "s/<tr> <td>Input<\/td> <td>Output<\/td> <\/tr> <tr> <td>//g" -e "s/<\/td> <td>/ = /g" -e "s/<\/td> <\/tr> <tr> <td>/     /g" -e "s/<\/td> <\/tr>//g"
+        grep "<td>.*</td>" | sed -e "s/<tr> <td>Input<\/td> <td>Output<\/td> <\/tr> <tr> <td>//g" -e "s/<\/td> <td>/$_space=$_space/g" -e "s/<\/td> <\/tr> <tr> <td>/     /g" -e "s/<\/td> <\/tr>//g"
 }
 
-decrypt() {
-    curl -s -X POST -H 'Content-Type: application/x-www-form-urlencoded' -d "id_list=${dec_acc_list}&action=dec&type=6" 'http://sretools02.qa.paypal.com/cgi-bin/decrypt_adv2.py' |
-        grep "<td>.*</td>" | sed -e "s/<tr> <td>Input<\/td> <td>Output<\/td> <\/tr> <tr> <td>//g" -e "s/<\/td> <td>/ = /g" -e "s/<\/td> <\/tr> <tr> <td>/     /g" -e "s/<\/td> <\/tr>//g"
+decrypt() { # this is parameterised function ( $1 is the argument )
+    _user_acc_id=$1 # 1st parameter
+    _space=$2 # space
+    curl -s -X POST -H 'Content-Type: application/x-www-form-urlencoded' -d "id_list=$_user_acc_id&action=dec&type=6" 'http://sretools02.qa.paypal.com/cgi-bin/decrypt_adv2.py' |
+        grep "<td>.*</td>" | sed -e "s/<tr> <td>Input<\/td> <td>Output<\/td> <\/tr> <tr> <td>//g" -e "s/<\/td> <td>/$_space=$_space/g" -e "s/<\/td> <\/tr> <tr> <td>/     /g" -e "s/<\/td> <\/tr>//g"
 }
 
 read_user_by_id() {
+    # If account id is encryoted then decrypt
+    numeric_regex='^[0-9]+$'
+    if ! [[ $user_acc_id =~ $numeric_regex ]]; then # regex matching
+        echo -e "\tReceived encrypted user account Id. So, decrypting...."
+        decrypted_respnse=$(decrypt $user_acc_id)
+        # splitting by delimeter
+        tokens=(${decrypted_respnse//=/ })
+        user_acc_id=${tokens[1]}
+    fi
+
     _resp=$(curl -s -X GET "http://jaws.qa.paypal.com/v1/QIJawsServices/restservices/user/${user_acc_id}" -H 'hostname: msmaster.qa.paypal.com')
     if [[ "$_resp" == *"DATA_NOT_EXIST"* ]]; then
         echo "User doesn't exist for account Id : ${user_acc_id}!"
     else
-        echo -e "\n\tUser Details\n\t------------"
-        echo "$_resp" | python -c 'import json,sys;obj=json.load(sys.stdin);print "\temail = {}\n\taccountType = {}\n\tcountry = {}\n\tcurrency = {}\n\tfirstName = {}\n\tlastName = {}".format(obj["emailAddress"],obj["accountType"],obj["country"],obj["currency"],obj["firstName"],obj["lastName"])'
+        echo -e "\tUser Details\n\t------------"
+        echo "$_resp" | python -c 'import json,sys;obj=json.load(sys.stdin);print "\taccountNumber = {}\n\temail = {}\n\taccountType = {}\n\tcountry = {}\n\tcurrency = {}\n\tfirstName = {}\n\tlastName = {}".format(obj["accountNumber"],obj["emailAddress"],obj["accountType"],obj["country"],obj["currency"],obj["firstName"],obj["lastName"])'
     fi
 }
 
@@ -57,6 +73,20 @@ git_push_files() {
     git ls-files --modified | grep "${file_type_regex}" | xargs git add
     git commit -m "${git_commit_msg}"
     git push ${git_remote_name} ${git_branch_name} ${val_force_push}
+}
+
+open_url() {
+    val_user=$USER # getting user name
+    case $short_url in
+        te) open https://engineering.paypalcorp.com/altus/env;;
+        c-oms|ci-oms) open https://ciapi-pilot.us-central1.gcp.dev.paypalinc.com/offermanagementserv-ci-2306/job/offermanagementserv-ci-2306/;;
+        c-offer|ci-offer) open https://ciapi-pilot.us-central1.gcp.dev.paypalinc.com/offerserv-ci-3876/job/offerserv-ci-3876/;;
+        c-amq|ci-amq) open https://ciapi-pilot.us-central1.gcp.dev.paypalinc.com/amqofferpostprocessd-ci-1726/job/amqofferpostprocessd-ci-1726/;;
+        g-offer|git-offer) open https://github.paypal.com/${val_user}/offerraptorserv;;
+        g-oms|git-oms) open https://github.paypal.com/${val_user}/offermanagementserv;;
+        g-amq|git-amq) open https://github.paypal.com/${val_user}/amqofferpostprocessd;;
+        *) echo "No matching URL for '$short_url'."
+    esac
 }
 
 # Default option values
@@ -143,13 +173,20 @@ while [[ $# -gt 0 ]]; do
         shift
         shift
         ;;
-    -c | --country) # currency
+    -c | --country)
         country_code=${2}
         shift
         shift
         ;;
+    -url | --o | --open-url)
+        option="open_url"
+        short_url=${2}
+        shift
+        shift
+        ;;
+
     -help | help)
-        helpFunction
+        help_function
         ;;
     *)
         echo ""
@@ -161,6 +198,7 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${POSITIONAL[@]}" # restore positional parameters
 
+## Validation options and parameters
 if [[ "$option" == "git_add_files" ]]; then
     if [[ -z "$file_type_regex" ]]; then
         echo -e "${warn_txt_col_s}[WARN] File type(s) regex is missing. All files will be added.${warn_txt_col_e}"
@@ -201,24 +239,30 @@ elif [[ "$option" == "create_user" ]]; then
     create_user
 elif [[ "$option" == "encrypt" ]]; then
     if [[ -z "$enc_acc_list" ]]; then
-        echo "Missing argument(s)!"
+        echo "Missing decrypted account Id(s)!"
     else
-        encrypt
+        encrypt " "
     fi
 elif [[ "$option" == "decrypt" ]]; then
     if [[ -z "$dec_acc_list" ]]; then
-        echo "Missing argument(s)!"
+        echo "Missing encrypted account Id(s)!"
     else
-        decrypt
+        decrypt $dec_acc_list " "
     fi
 elif [[ "$option" == "read_user_by_id" ]]; then
     if [[ -z "$user_acc_id" ]]; then
-        echo "Missing argument(s)!"
+        echo "Missing user account Id!"
     else
         read_user_by_id
     fi
+elif [[ "$option" == "open_url" ]]; then
+    if [[ -z "$short_url" ]]; then
+        echo "Missing short URL argument!"
+    else
+        open_url
+    fi
 else
-    helpFunction
+    help_function
 fi
 
 #################### Dev Doc ##########################

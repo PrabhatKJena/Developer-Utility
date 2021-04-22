@@ -3,24 +3,27 @@
 help_function() {
     echo -e "\tUsage: $0 <option> <param>"
     echo -e "\t------------------------------------------------- IO Utils -----------------------------------------------------------------"
-    echo -e "\t -e  | --encrypt                 : To encrypt ID(s).                     e.g.  -e 115805873229299249[,115805873229299250]"
-    echo -e "\t -d  | --decrypt                 : To descrypt ID(s).                    e.g.  -d 5FSW9VDEHJ64L[,WXVEFZPYHPU2G]"
-    echo -e "\t -ru | --read-user               : To read user details by account ID.   e.g.  -ru 115805873229299249"
+    echo -e "\t -e  | --encrypt                 : To encrypt ID(s).                         e.g.  -e 115805873229299249[,115805873229299250]"
+    echo -e "\t -d  | --decrypt                 : To descrypt ID(s).                        e.g.  -d 5FSW9VDEHJ64L[,WXVEFZPYHPU2G]"
+    echo -e "\t -ru | --read-user               : To read user details by account ID.       e.g.  -ru 115805873229299249"
     echo -e "\t -cu | --create-user             : To create user account by account type personal or business. 
-              [-acc personal | business]                                                e.g.  -cu -acc personal -ccy USD -c US 
+              [-acc personal | business]                                                    e.g.  -cu -acc personal -ccy USD -c US 
               [-ccy <current-code>] 
               [-c <country-code>]"
     echo -e "\t------------------------------------------------- GIT Functions ------------------------------------------------------------"
-    echo -e "\t -ga | --git-add                 : To add files for git commit.          e.g.  -ga -t \"java\|xml\"
+    echo -e "\t -ga | --git-add                 : To add files for git commit.              e.g.  -ga -t \"java\|xml\"
               [-t <file-type-regex>]"
-    echo -e "\t -gp | --git-push                : To commit and push files to git repo. e.g.  -gp -t \"java\" -m \"commit message\" -r origin -b dev
+    echo -e "\t -gp | --git-push                : To commit and push files to git repo.     e.g.  -gp -t \"java\" -m \"commit message\" -r origin -b dev
               [-t <file-type-regex>]
               [-m <commit-message>]
               [-r <git-remote-name>]
               [-b <git-branch-name>]"
     echo -e "\t------------------------------------------------- Miscellaneous ------------------------------------------------------------"
-    echo -e "\t --o | --open-url                 : To open URL using short url mapping.  e.g.  --o te"
-    exit 1 #Exit script after printing help
+    echo -e "\t -o | --open-url                 : To open URL using short url mapping.      e.g.  --o te"
+    echo -e "\t -te ttl                         : To update TTL of test environment(s).     e.g.  -te ttl
+                                          [${bold}NOTE${reset} : Make sure to update ${bold}testenv_list${reset} with your TE list]"
+    echo -e "${yellow}\t --install                       : To install this tool to your PATH.        e.g.  --install. Then use command as ${bold}xio -h${reset}"
+    exit 1 #Exit script after printing he$lp
 }
 
 encrypt() {
@@ -49,7 +52,7 @@ read_user_by_id() {
 
     _resp=$(curl -s -X GET "http://jaws.qa.paypal.com/v1/QIJawsServices/restservices/user/${user_acc_id}" -H 'hostname: msmaster.qa.paypal.com')
     if [[ "$_resp" == *"DATA_NOT_EXIST"* ]]; then
-        echo "User doesn't exist for account Id : ${user_acc_id}!"
+        echo "${yellow}User doesn't exist for account Id : ${user_acc_id}!"
     else
         echo -e "\tUser Details\n\t------------"
         echo "$_resp" | python -c 'import json,sys;obj=json.load(sys.stdin);print "\taccountNumber = {}\n\temail = {}\n\taccountType = {}\n\tcountry = {}\n\tcurrency = {}\n\tfirstName = {}\n\tlastName = {}".format(obj["accountNumber"],obj["emailAddress"],obj["accountType"],obj["country"],obj["currency"],obj["firstName"],obj["lastName"])'
@@ -76,17 +79,59 @@ git_push_files() {
 }
 
 open_url() {
-    val_user=$USER # getting user name
+
+    ### Trying to use map but not helping much
+    # full_url="";
+    # for entry in "${url_map[@]}" ; do
+    #     tokens=(${entry//=/ }) # splitting entry
+    #     key=${tokens[0]}
+    #     val=${tokens[1]}
+    #     if [[ "${short_url}" =~ $key ]]; then
+    #         full_url=$val
+    #         echo -e "Full URL : ${full_url}"
+    #         break
+    #     fi
+    # done
+    # if [[ "${full_url}" != "" ]]; then
+    #     open $full_url 
+    # else
+    #     echo "${yellow}No matching URL for '$short_url'${reset}"
+    # fi
+
     case $short_url in
         te) open https://engineering.paypalcorp.com/altus/env;;
+        
         c-oms|ci-oms) open https://ciapi-pilot.us-central1.gcp.dev.paypalinc.com/offermanagementserv-ci-2306/job/offermanagementserv-ci-2306/;;
         c-offer|ci-offer) open https://ciapi-pilot.us-central1.gcp.dev.paypalinc.com/offerserv-ci-3876/job/offerserv-ci-3876/;;
         c-amq|ci-amq) open https://ciapi-pilot.us-central1.gcp.dev.paypalinc.com/amqofferpostprocessd-ci-1726/job/amqofferpostprocessd-ci-1726/;;
+        
         g-offer|git-offer) open https://github.paypal.com/${val_user}/offerraptorserv;;
         g-oms|git-oms) open https://github.paypal.com/${val_user}/offermanagementserv;;
         g-amq|git-amq) open https://github.paypal.com/${val_user}/amqofferpostprocessd;;
-        *) echo "No matching URL for '$short_url'."
+        g-xio) open https://github.paypal.com/gist/prajena/3a5b8904e4ca7131dcc734ffdf26434d;;
+
+        td|tech-design) open https://engineering.paypalcorp.com/confluence/display/paypalshopping/Technical+Design+Documents;;
+        spike) open https://engineering.paypalcorp.com/confluence/display/paypalshopping/Offer+Spikes;;
+        *) echo "${yellow}No matching URL for '$short_url'${reset}"
     esac
+}
+
+update_testenv(){
+    if [[ $testenv_command == ttl ]]; then
+        ## now loop through the above array
+        for te in "${testenv_list[@]}"
+        do
+            echo -e "--------------------------------------------"
+            echo -e "Updating $te ....."
+            echo -e "--------------------------------------------"
+            testenv ttl extend $te 30d
+        done
+    fi
+}
+
+install_xio(){
+    cp xio.sh xio
+    mv xio /usr/local/bin
 }
 
 # Default option values
@@ -94,9 +139,40 @@ currency_code="USD"
 country_code="US"
 acc_type="personal"
 val_force_push=""
-# constants
+val_user=$USER # getting user name
+
+# Color constants
 warn_txt_col_s="\033[33m"
 warn_txt_col_e="\033[0m"
+red=`tput setaf 1`
+yellow=`tput setaf 3`
+reset=`tput sgr 0`
+bg_white=`tput setab 7`
+# Font constants
+bold=`tput bold`
+
+### ---------- User's config START ------------------##
+## declare an array variable
+declare -a testenv_list=(
+                         "te-alm-33554832110535211576975"
+                         "te-prajena-865"
+                         "te-prajena-3386"
+                         "te-prajena-753"
+                         "te-prajena-1510"
+                         "te-prajena-2419"
+                         "te-alm-31304572104511259613547"
+                         "te-offers-release"
+                         "te-offers-dev"
+                         "te-offers-pr"
+                        )
+## Declare a map
+# declare -a url_map=(
+#                     "te=https://engineering.paypalcorp.com/altus/env"
+#                     "c-oms=https://ciapi-pilot.us-central1.gcp.dev.paypalinc.com/offermanagementserv-ci-2306/job/offermanagementserv-ci-2306/"
+#                     "c-offer=https://ciapi-pilot.us-central1.gcp.dev.paypalinc.com/offerserv-ci-3876/job/offerserv-ci-3876/"
+#                     "c-amq|ci-amq=https://ciapi-pilot.us-central1.gcp.dev.paypalinc.com/amqofferpostprocessd-ci-1726/job/amqofferpostprocessd-ci-1726/"
+#                     )
+### ---------- User's config END ------------------##
 
 # Parse command line input
 POSITIONAL=()
@@ -178,13 +254,22 @@ while [[ $# -gt 0 ]]; do
         shift
         shift
         ;;
-    -url | --o | --open-url)
+    -url | -o | --open-url)
         option="open_url"
         short_url=${2}
         shift
         shift
         ;;
-
+    -te | --testenv)
+        option="update_testenv"
+        testenv_command=${2}
+        shift
+        shift
+        ;;
+    --install)
+        option="install_xio"
+        shift
+        ;;
     -help | help)
         help_function
         ;;
@@ -201,29 +286,29 @@ set -- "${POSITIONAL[@]}" # restore positional parameters
 ## Validation options and parameters
 if [[ "$option" == "git_add_files" ]]; then
     if [[ -z "$file_type_regex" ]]; then
-        echo -e "${warn_txt_col_s}[WARN] File type(s) regex is missing. All files will be added.${warn_txt_col_e}"
+        echo -e "${yellow}[WARN] File type(s) regex is missing. All files will be added.${reset}"
         echo ""
     fi
     git_add_files
 elif [[ "$option" == "git_push_files" ]]; then
     if [[ -z "$git_commit_msg" ]]; then
-        echo -e "${warn_txt_col_s}[WARN] Commit message is missing.${warn_txt_col_e}"
+        echo -e "${yellow}[WARN] Commit message is missing.${reset}"
         exit;
     fi
     if [[ -z "$file_type_regex" ]]; then
-        echo -e "${warn_txt_col_s}[WARN] File type(s) regex is missing. All files will be pushed.${warn_txt_col_e}"
+        echo -e "${yellow}[WARN] File type(s) regex is missing. All files will be pushed.${reset}"
         file_type_regex="\.*"
     fi
     if [[ -z "$git_remote_name" ]]; then
-        echo -e "${warn_txt_col_s}[WARN] Git remote name is missing. File(s) will be pushed to 'origin'.${warn_txt_col_e}"
+        echo -e "${yellow}[WARN] Git remote name is missing. File(s) will be pushed to 'origin'.${reset}"
         git_remote_name="origin"
     fi
     if [[ -z "$git_branch_name" ]]; then
         git_branch_name=$(git name-rev --name-only HEAD) 
-        echo -e "${warn_txt_col_s}[WARN] Git branch name is missing. File(s) will be pushed to '${git_branch_name}' branch.${warn_txt_col_e}"
+        echo -e "${yellow}[WARN] Git branch name is missing. File(s) will be pushed to '${git_branch_name}' branch.${reset}"
     fi
     if [[ ${val_force_push} == "-f" ]]; then
-        echo -e "${warn_txt_col_s}[WARN] Force push requested."
+        echo -e "${yellow}[WARN] Force push requested."
     fi
     echo ""
     
@@ -239,34 +324,44 @@ elif [[ "$option" == "create_user" ]]; then
     create_user
 elif [[ "$option" == "encrypt" ]]; then
     if [[ -z "$enc_acc_list" ]]; then
-        echo "Missing decrypted account Id(s)!"
+        echo "${red}Missing decrypted account Id(s)!${reset}"
     else
         encrypt " "
     fi
 elif [[ "$option" == "decrypt" ]]; then
     if [[ -z "$dec_acc_list" ]]; then
-        echo "Missing encrypted account Id(s)!"
+        echo "${red}Missing encrypted account Id(s)!${reset}"
     else
         decrypt $dec_acc_list " "
     fi
 elif [[ "$option" == "read_user_by_id" ]]; then
     if [[ -z "$user_acc_id" ]]; then
-        echo "Missing user account Id!"
+        echo "${red}Missing user account Id!${reset}"
     else
         read_user_by_id
     fi
 elif [[ "$option" == "open_url" ]]; then
     if [[ -z "$short_url" ]]; then
-        echo "Missing short URL argument!"
+        echo "${red}Missing short URL argument!${reset}"
     else
         open_url
     fi
+elif [[ "$option" == "update_testenv" ]]; then
+    if [[ -z "$testenv_command" ]]; then
+        echo "${red}Missing testenv command!${reset}"
+    else
+        update_testenv
+    fi
+elif [[ "$option" == "install_xio" ]]; then
+    install_xio
+    echo "Successfully installed ${bold}xio${reset} tool to location: /usr/locale/bin"
 else
     help_function
 fi
 
-#################### Dev Doc ##########################
-#     curl -s       to hide progress status info      #
-#     $#            command line argument count       #
-#     shift         skip option                       #
-#######################################################
+ ################### Dev Doc #########################################
+#     curl -s                       to hide progress status info      #
+#     $#                            command line argument count       #
+#     shift                         skip option                       #
+#     split wirh regex              sed -E 's/(.*)=(.*)/\2/'          #
+ #####################################################################
